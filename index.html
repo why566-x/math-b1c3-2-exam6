@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>翠翠小精靈的數學空間 （六關挑戰版）</title>
+    
+    <!-- 1. 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. 引入 React 18 (生產環境穩定版) -->
+    <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    
+    <!-- 3. 引入 Babel (指定穩定版本，避免抓取到不相容的最新版) -->
+    <script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Fredoka:wght@400;600&display=swap');
+        
+        body {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+        }
+
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fade-in-up 0.4s ease-out forwards;
+        }
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin-slow 8s linear infinite;
+        }
+        @keyframes bounce-in {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.05); opacity: 1; }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+        .animate-pulse-green {
+            animation: pulse-green 1.5s infinite;
+        }
+        /* 隱藏數字輸入框的箭頭 */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* 錯誤訊息樣式 */
+        #error-display {
+            display: none;
+            padding: 20px;
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 2px solid #f87171;
+            margin: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            z-index: 9999;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="bg-fuchsia-50 text-slate-800">
+    <div id="error-display"></div>
+    <div id="root"></div>
+
+    <!-- 修正點：將 presets 的 es2015 換成 env，因為 es2015 在現代 Babel 已被廢棄並移除 -->
+    <script type="text/babel" data-presets="env,react">
+        // 全域錯誤捕捉，防止白畫面
+        window.onerror = function(message, source, lineno, colno, error) {
+            const errorDiv = document.getElementById('error-display');
+            errorDiv.style.display = 'block';
+            errorDiv.innerHTML = `<strong>程式發生錯誤：</strong><br>${message}<br><small>Line: ${lineno}</small>`;
+            console.error(error);
+        };
+
+        const { useState, useEffect, useRef } = React;
+
+        // --- 內建圖示庫 (SVG) ---
+        const IconBase = ({ children, className = "", ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
+        );
+        
+        const Icons = {
+            Sparkles: (p) => <IconBase {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></IconBase>,
+            Wand2: (p) => <IconBase {...p}><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></IconBase>,
+            Star: (p) => <IconBase {...p}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></IconBase>,
+            CheckCircle: (p) => <IconBase {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></IconBase>,
+            AlertCircle: (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></IconBase>,
+            Trophy: (p) => <IconBase {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17"/><path d="M14 14.66V17"/><path d="M2 10v3a10 10 0 0 0 10 10 10 10 0 0 0 10-10v-3H2Z"/><path d="M15 9h-6"/></IconBase>,
+            Medal: (p) => <IconBase {...p}><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></IconBase>,
+            Home: (p) => <IconBase {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></IconBase>,
+            LayoutGrid: (p) => <IconBase {...p}><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></IconBase>,
+            Check: (p) => <IconBase {...p}><polyline points="20 6 9 17 4 12"/></IconBase>,
+            User: (p) => <IconBase {...p}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></IconBase>,
+            Crown: (p) => <IconBase {...p}><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></IconBase>,
+            RotateCcw: (p) => <IconBase {...p}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></IconBase>,
+            Video: (p) => <IconBase {...p}><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></IconBase>,
+            Divide: (p) => <IconBase {...p}><circle cx="12" cy="6" r="1"/><line x1="5" y1="12" x2="19" y2="12"/><circle cx="12" cy="18" r="1"/></IconBase>,
+            ArrowRight: (p) => <IconBase {...p}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></IconBase>,
+            BookOpen: (p) => <IconBase {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></IconBase>,
+            Zap: (p) => <IconBase {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></IconBase>,
+            Feather: (p) => <IconBase {...p}><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></IconBase>,
+            ShieldAlert: (p) => <IconBase {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></IconBase>,
+            Save: (p) => <IconBase {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconBase>
+        };
+
+        // 教師設定：建立資料庫後填入這兩項，再將本檔上傳到網站。
+        // 僅可使用 publishable 或 anon 公開金鑰，切勿使用 secret / service_role。
+        const CLOUD = { url: "", key: "" };
+        const CLOUD_ENABLED = Boolean(CLOUD.url && CLOUD.key);
+        const RECORD_KEY = 'math_adventure_local_leaderboard';
+        const readRecords = () => {
+            const records = JSON.parse(localStorage.getItem(RECORD_KEY) || '[]');
+            if (!Array.isArray(records)) throw new Error('紀錄格式不正確');
+            return records.filter(r => r && typeof r.name === 'string' && Number.isFinite(r.score));
+        };
+        const sortRecords = records => [...records].sort((a,b) => b.score-a.score || a.timestamp-b.timestamp);
+        const recordDate = time => new Date(time).toLocaleString('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+        async function cloudRPC(method, body = {}) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 12000);
+            try {
+                const headers = {'Content-Type':'application/json', apikey:CLOUD.key};
+                if (CLOUD.key.startsWith('eyJ')) headers.Authorization = `Bearer ${CLOUD.key}`;
+                const response = await fetch(`${CLOUD.url.replace(/\/$/,'')}/rest/v1/rpc/${method}`, {
+                    method:'POST', headers, body:JSON.stringify(body), signal:controller.signal
+                });
+                if (!response.ok) throw new Error(`連線失敗（${response.status}）`);
+                return await response.json();
+            } finally { clearTimeout(timer); }
+        }
+
+        const EquationAdventure = () => {
+            const [gameState, setGameState] = useState('home');
+            const [currentLevel, setCurrentLevel] = useState(0);
+            const [currentProblemIndex, setCurrentProblemIndex] = useState(0);
+            const [userInput, setUserInput] = useState('');
+            const [feedback, setFeedback] = useState(null); 
+            const [showErrorGuide, setShowErrorGuide] = useState(false);
+            const [score, setScore] = useState(0);
+            const [problems, setProblems] = useState([]); 
+            const [completedLevels, setCompletedLevels] = useState([]);
+            const [leaderboard, setLeaderboard] = useState([]);
+            const [playerName, setPlayerName] = useState('');
+            const [isLoading, setIsLoading] = useState(true);
+            const [isSaving, setIsSaving] = useState(false);
+            const [boardMode, setBoardMode] = useState(CLOUD_ENABLED ? 'online' : 'local');
+            const [notice, setNotice] = useState('');
+            const [boardError, setBoardError] = useState('');
+            const [pendingCount, setPendingCount] = useState(0);
+            const saveLock = useRef(false);
+            const runRecord = useRef(null);
+            const transitionTimer = useRef(null);
+            const boardRequest = useRef(0);
+            
+            // --- 追蹤每一題是否已經給過分 (格式: "levelIndex-problemIndex") ---
+            const [completedProblemIds, setCompletedProblemIds] = useState(new Set());
+            
+            const inputRef = useRef(null);
+
+            // --- 速度獎勵狀態 ---
+            const [problemStartTime, setProblemStartTime] = useState(0);
+            const [earnedBonus, setEarnedBonus] = useState(0);
+
+            const refreshLeaderboard = async () => {
+                const request = ++boardRequest.current;
+                setIsLoading(true);
+                setBoardError('');
+                try {
+                    if (boardMode === 'online' && CLOUD_ENABLED) {
+                        const rows = await cloudRPC('equation_top_scores');
+                        if (request === boardRequest.current) setLeaderboard(rows.map(r => ({...r, timestamp:Date.parse(r.created_at), date:recordDate(r.created_at)})));
+                    } else {
+                        const rows = readRecords();
+                        if (request === boardRequest.current) setLeaderboard(sortRecords(rows).slice(0,100));
+                    }
+                } catch(e) {
+                    if (request === boardRequest.current) {
+                        setLeaderboard([]);
+                        setBoardError(boardMode === 'online' ? '線上排行榜暫時無法讀取，請檢查網路後重新整理，或切換本機紀錄。' : '無法讀取本機紀錄，請確認瀏覽器允許儲存資料。');
+                    }
+                } finally { if (request === boardRequest.current) setIsLoading(false); }
+                try { setPendingCount(readRecords().filter(r => r.pending && r.target === CLOUD.url).length); } catch(e) {}
+            };
+            useEffect(() => {
+                if (gameState !== 'leaderboard') return;
+                refreshLeaderboard();
+                const timer = setInterval(refreshLeaderboard, 30000);
+                return () => { clearInterval(timer); boardRequest.current++; };
+            }, [gameState, boardMode]);
+            useEffect(() => () => clearTimeout(transitionTimer.current), []);
+
+            // --- 題數改變時，重置計時器與自動聚焦 ---
+            useEffect(() => {
+                if (gameState === 'playing') {
+                    setProblemStartTime(Date.now());
+                    setTimeout(() => {
+                        if (inputRef.current) inputRef.current.focus();
+                    }, 100);
+                }
+            }, [currentProblemIndex, gameState]);
+
+            // --- 數學工具與分數解析 ---
+            const getGCD = (a, b) => b === 0 ? a : getGCD(b, a % b);
+            const simplifyFraction = (n, d) => {
+                if (d === 0) return { n: 0, d: 1 };
+                const common = getGCD(Math.abs(n), Math.abs(d));
+                const sign = (n * d) < 0 ? -1 : 1;
+                return { n: sign * Math.abs(n) / common, d: Math.abs(d) / common };
+            };
+            const parseInputToFraction = (input) => {
+                if (!input) return null;
+                const cleanInput = input.trim();
+                if (!/^[+-]?\d+(?:\s*\/\s*[+-]?\d+)?$/.test(cleanInput)) return null;
+                if (cleanInput.includes('/')) {
+                    const parts = cleanInput.split('/');
+                    if (parts.length !== 2) return null;
+                    const n = parseInt(parts[0]);
+                    const d = parseInt(parts[1]);
+                    if (isNaN(n) || isNaN(d) || d === 0) return null;
+                    return simplifyFraction(n, d);
+                } else {
+                    const val = parseInt(cleanInput);
+                    if (isNaN(val)) return null;
+                    return { n: val, d: 1 };
+                }
+            };
+
+            const LEVEL_CONFIG = [
+                {id: 1, title: "第一關：魔法初醒", description: "小精靈的魔法種子不見了！請運用移項法則找回原本的數量。", concept: "x - a = b", color: "from-green-400 to-emerald-500", teaching: { title: "移項法則：減法變加法", content: "當你看到 x - a = b 時，想把 x 留下來，就要把減號的數字移到等號右邊變加號。", example: "x - 5 = 3  →  x = 3 + 5  →  x = 8", videoUrl: "https://www.junyiacademy.org/course-compare/math-juni/math-7/diff-m7/v1283-new-topic-314/v1283-new-topic-317/v/aRopm25GW4I"}},
+                {id: 2, title: "第二關：能量平衡", description: "魔法森林的磁場需要平衡。請算出 x 讓能量守恆。", concept: "x + a = b", color: "from-blue-400 to-indigo-500", teaching: { title: "移項法則：加法變減法", content: "當你看到 x + a = b 時，把加號的數字移到等號右邊變減號。", example: "x + 4 = 10  →  x = 10 - 4  →  x = 6", videoUrl: "https://www.junyiacademy.org/course-compare/math-juni/math-7/diff-m7/v1283-new-topic-314/v1283-new-topic-317/v/k_hfmfjBWUM"}},
+                {id: 3, title: "第三關：魔力倍增", description: "小精靈讓數字倍增了！利用除法還原魔法。(最後兩題答案可能是分數喔！)", concept: "ax = b", color: "from-violet-400 to-purple-500", teaching: { title: "移項法則：乘法變除法", content: "當數字黏在 x 旁邊 (例如 2x) 代表乘法。規則是：「乘號移過等號變除法」。\n若不能整除，請用分數表示答案。", example: "2x = 3  →  x = 3 ÷ 2  →  x = 3/2", videoUrl: "https://www.junyiacademy.org/course-compare/math-juni/math-7/diff-m7/v1283-new-topic-314/v1283-new-topic-317/v/PI6GupVcMzQ"}},
+                {id: 4, title: "第四關：封印解除", description: "寶箱被縮小了！請將被除的數字變回原形。(本關以分數形式呈現)", concept: "x / a = b", color: "from-fuchsia-400 to-pink-500", teaching: { title: "移項法則：除法變乘法", content: "當你看到 x / a = b 時，x 被分成了好幾份。想把 x 還原，就要把分母移到等號右邊變乘法。", example: "x / 3 = 4  →  x = 4 × 3  →  x = 12", videoUrl: "https://www.junyiacademy.org/course-compare/math-juni/math-7/diff-m7/v1283-new-topic-314/v1283-new-topic-317/v/cSGAwunx6sA"}},
+                {id: 5, title: "第五關：終極魔法陣", description: "進階考驗！混合了加減乘除，你能幫助翠翠完成魔法嗎？(最後兩題答案可能是分數！)", concept: "ax + b = c", color: "from-amber-400 to-orange-500", teaching: { title: "終極心法：兩步驟解封印", content: "1. 【先移項】：把沒有 x 的數字移到對面。\n2. 【後除法】：把 x 的係數除下去。\n若除不盡，請寫成分數。", example: "3x + 4 = 6\n3x = 2\nx = 2/3", videoUrl: "https://www.junyiacademy.org/course-compare/math-juni/math-7/diff-m7/v1283-new-topic-314/v1283-new-topic-317/v/PPgjiqwAJqQ"}}
+                ,{id: 6, title: "第六關：雙邊魔法對決", description: "等號兩邊都有未知數！先集中 x，再找出答案。最後兩題挑戰分數。", concept: "ax + b = cx + d", color: "from-rose-400 to-red-500", teaching: { title: "兩邊同減，再合併同類項", content: "1. 等號兩邊同減 cx，把含 x 的項集中到左邊。\n2. 兩邊同減 b，把常數集中到右邊。\n3. 得到 (a − c)x = d − b，再除以 x 的係數。", example: "5x + 3 = 2x + 15\n3x + 3 = 15\n3x = 12\nx = 4", videoUrl: null}}
+            ];
+
+            const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+            const randomNonZero = (min, max) => { let num = 0; while (num === 0) num = randomInt(min, max); return num; };
+
+            const generateProblemForLevel = (levelIndex, problemIndex) => {
+                const isFractionChallenge = (problemIndex >= 3);
+                let aVal = { n: 0, d: 1 };
+                let display = {};
+                let qStr = "";
+
+                switch(levelIndex) {
+                    case 0: {
+                        const sub = randomInt(3,30);
+                        const res1 = randomInt(5,50); 
+                        aVal = {n:sub+res1, d:1}; 
+                        qStr = `x - ${sub} = ${res1}`; 
+                        display = {type:'text', content:qStr}; 
+                        break;
+                    }
+                    case 1: {
+                        const add = randomInt(3,30);
+                        const ans2 = randomNonZero(-20,30); 
+                        aVal = {n:ans2, d:1}; 
+                        qStr = `x + ${add} = ${ans2+add}`; 
+                        display = {type:'text', content:qStr}; 
+                        break;
+                    }
+                    case 2: {
+                        if(isFractionChallenge){ 
+                            let c1 = randomInt(2,9);
+                            let b1 = randomInt(1,20); 
+                            while(b1%c1===0) b1=randomInt(1,20); 
+                            aVal = simplifyFraction(b1,c1); 
+                            qStr = `${c1}x = ${b1}`; 
+                            display = {type:'text', content:qStr}; 
+                        } else { 
+                            const c1 = randomInt(2,9);
+                            const ans = randomNonZero(-12,12); 
+                            aVal = {n:ans, d:1}; 
+                            qStr = `${c1}x = ${c1*ans}`; 
+                            display = {type:'text', content:qStr}; 
+                        } 
+                        break;
+                    }
+                    case 3: {
+                        const divisor = randomInt(2,12); 
+                        if(isFractionChallenge){ 
+                            let rhsN, rhsD; 
+                            do{ rhsN=randomInt(1,9); rhsD=randomInt(2,9); } while(getGCD(rhsN,rhsD)!==1); 
+                            aVal = simplifyFraction(divisor*rhsN, rhsD); 
+                            qStr = `x/${divisor}=${rhsN}/${rhsD}`; 
+                            display = {type:'fraction_eq', lhs:{n:'x',d:divisor}, rhs:{n:rhsN,d:rhsD,isFraction:true}}; 
+                        } else { 
+                            const rhs = randomNonZero(-12,12); 
+                            aVal = {n:divisor*rhs, d:1}; 
+                            qStr = `x/${divisor}=${rhs}`; 
+                            display = {type:'fraction_eq', lhs:{n:'x',d:divisor}, rhs:{val:rhs,isFraction:false}}; 
+                        } 
+                        break;
+                    }
+                    case 4: {
+                        if(isFractionChallenge){ 
+                            const a = randomInt(2,9);
+                            const b = randomInt(1,20); 
+                            let c = randomInt(1,50); 
+                            while((c-b)%a===0) c=randomInt(1,50); 
+                            aVal = simplifyFraction(c-b, a); 
+                            qStr = `${a}x + ${b} = ${c}`; 
+                            display = {type:'text', content:qStr}; 
+                        } else { 
+                            const a = randomInt(2,9);
+                            const ans = randomNonZero(-9,15);
+                            const b = randomInt(1,20); 
+                            aVal = {n:ans, d:1}; 
+                            qStr = `${a}x + ${b} = ${a*ans+b}`; 
+                            display = {type:'text', content:qStr}; 
+                        } 
+                        break;
+                    }
+                    case 5: {
+                        const c = randomInt(1, 6);
+                        const delta = (problemIndex % 2 ? -1 : 1) * randomInt(2, 5);
+                        const a = c + delta;
+                        if (a === 0) return generateProblemForLevel(levelIndex, problemIndex);
+                        const b = randomNonZero(-12, 12);
+                        let difference;
+                        if (isFractionChallenge) {
+                            do { difference = randomNonZero(-20, 20); } while (difference % delta === 0);
+                        } else { difference = delta * randomNonZero(-8, 8); }
+                        const d = b + difference;
+                        aVal = simplifyFraction(difference, delta);
+                        const term = coefficient => coefficient === 1 ? 'x' : coefficient === -1 ? '-x' : `${coefficient}x`;
+                        const constant = value => value === 0 ? '' : value > 0 ? ` + ${value}` : ` - ${Math.abs(value)}`;
+                        qStr = `${term(a)}${constant(b)} = ${term(c)}${constant(d)}`;
+                        display = {type:'text', content:qStr};
+                        break;
+                    }
+                    default: 
+                        qStr="x=0";
+                }
+                return { q: qStr, display, a: aVal };
+            };
+
+            const generateNewProblems = (levelIdx) => {
+                const generated = []; const seen = new Set();
+                for (let i=0; i<5; i++) {
+                    let prob; let attempts=0;
+                    do { prob=generateProblemForLevel(levelIdx,i); attempts++; } while (seen.has(prob.q)&&attempts<10);
+                    seen.add(prob.q); generated.push(prob);
+                }
+                return generated;
+            };
+
+            const startLevel = (idx) => { 
+                setCurrentLevel(idx); 
+                setCurrentProblemIndex(0); 
+                setUserInput(''); 
+                setFeedback(null); 
+                setShowErrorGuide(false); 
+                setProblems(generateNewProblems(idx)); 
+                setGameState('playing'); 
+                setEarnedBonus(0);
+            };
+
+            const handleGoHome = () => { clearTimeout(transitionTimer.current); setGameState('home'); };
+            const handleShowLeaderboard = () => setGameState('leaderboard');
+            const handleRestartGame = () => { 
+                runRecord.current = null;
+                setNotice('');
+                setScore(0); 
+                setCompletedLevels([]); 
+                setPlayerName(''); 
+                setCompletedProblemIds(new Set());
+                setGameState('home'); 
+            };
+
+            const handleCheck = () => {
+                if (feedback === 'success') return;
+
+                const userFraction = parseInputToFraction(userInput);
+                if (!userFraction) { setFeedback('warning'); return; }
+                const isCorrect = (userFraction.n === problems[currentProblemIndex].a.n && userFraction.d === problems[currentProblemIndex].a.d);
+                
+                if (isCorrect) {
+                    const timeTaken = (Date.now() - problemStartTime) / 1000;
+                    let speedBonus = 0;
+                    if (timeTaken <= 3) speedBonus = 60;
+                    else if (timeTaken <= 6) speedBonus = 50;
+                    else if (timeTaken <= 9) speedBonus = 40;
+                    else if (timeTaken <= 12) speedBonus = 30;
+                    else if (timeTaken <= 16) speedBonus = 20;
+                    else if (timeTaken <= 25) speedBonus = 10;
+                    
+                    setEarnedBonus(speedBonus);
+                    setFeedback('success'); 
+                    setShowErrorGuide(false);
+                    
+                    const problemKey = `${currentLevel}-${currentProblemIndex}`;
+
+                    if (!completedLevels.includes(currentLevel) && !completedProblemIds.has(problemKey)) {
+                        setScore(s => s + 100 + speedBonus);
+                        setCompletedProblemIds(prev => new Set(prev).add(problemKey));
+                    }
+                    
+                    transitionTimer.current = setTimeout(() => {
+                        setFeedback(null); setUserInput(''); setEarnedBonus(0);
+                        if (currentProblemIndex < 4) setCurrentProblemIndex(i => i + 1);
+                        else {
+                            const newCompleted = [...new Set([...completedLevels, currentLevel])];
+                            setCompletedLevels(newCompleted);
+                            if (newCompleted.length === LEVEL_CONFIG.length) setGameState('allComplete');
+                            else setGameState('home');
+                        }
+                    }, 1800); 
+                } else {
+                    setFeedback('error'); setShowErrorGuide(true); setScore(s => Math.max(0, s - 20));
+                }
+            };
+
+            const handleInsertSlash = () => { setUserInput(prev => prev + '/'); if(inputRef.current) inputRef.current.focus(); };
+
+            const uploadRecord = record => cloudRPC('equation_submit_score', {
+                p_id:record.id, p_name:record.name, p_score:record.score
+            });
+            const markSynced = id => {
+                const rows = readRecords().map(r => r.id === id ? {...r, pending:false} : r);
+                localStorage.setItem(RECORD_KEY, JSON.stringify(rows));
+            };
+            const handleSaveRecord = async () => {
+                if (!playerName.trim() || saveLock.current) return;
+                saveLock.current = true; setIsSaving(true); setNotice('');
+                let localSaved = false;
+                try {
+                    if (!runRecord.current) {
+                        const bytes = crypto.getRandomValues(new Uint8Array(16));
+                        bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+                        const hex = Array.from(bytes, b => b.toString(16).padStart(2,'0')).join('');
+                        const id = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+                        runRecord.current = {id, name:playerName.trim().slice(0,12), score, timestamp:Date.now(), date:recordDate(Date.now()), version:6, pending:CLOUD_ENABLED, target:CLOUD.url};
+                    }
+                    const record = runRecord.current;
+                    const rows = readRecords();
+                    if (!rows.some(r => r.id === record.id)) localStorage.setItem(RECORD_KEY, JSON.stringify([...rows, record]));
+                    localSaved = true;
+                    if (CLOUD_ENABLED) { await uploadRecord(record); markSynced(record.id); }
+                    setNotice(CLOUD_ENABLED ? '成績已儲存到線上排行榜，並保留本機備份。' : '成績已儲存於本機。共用資料庫尚未設定。');
+                    setGameState('leaderboard');
+                } catch(e) {
+                    setNotice(localSaved ? '本機紀錄已保留，但線上同步未完成。請按「重試儲存」，或稍後在排行榜補傳。' : '本機儲存失敗，請確認瀏覽器儲存空間與權限後重試。');
+                } finally { saveLock.current = false; setIsSaving(false); }
+            };
+            const syncPending = async () => {
+                if (saveLock.current) return;
+                saveLock.current = true; setIsSaving(true);
+                try {
+                    for (const record of readRecords().filter(r => r.pending && r.target === CLOUD.url)) {
+                        await uploadRecord(record); markSynced(record.id);
+                    }
+                    setNotice('待傳成績已全部同步。');
+                } catch(e) { setNotice('部分成績尚未同步，請稍後再次補傳。已保留本機紀錄。'); }
+                finally { saveLock.current = false; setIsSaving(false); await refreshLeaderboard(); }
+            };
+
+            const renderProblemDisplay = (p) => {
+                if (!p || !p.display) return null;
+
+                if (p.display.type === 'text') return <span className="text-3xl sm:text-5xl font-mono font-bold text-slate-700 tracking-wider break-all">{p.display.content}</span>;
+                if (p.display.type === 'fraction_eq') {
+                    return (
+                        <div className="flex items-center gap-4 text-3xl sm:text-5xl font-mono font-bold text-slate-700">
+                            <div className="flex flex-col items-center"><span className="border-b-2 border-slate-700 px-2 pb-1">{p.display.lhs.n}</span><span className="pt-1">{p.display.lhs.d}</span></div>
+                            <span>=</span>
+                            {p.display.rhs.isFraction ? 
+                                <div className="flex flex-col items-center"><span className="border-b-2 border-slate-700 px-2 pb-1">{p.display.rhs.n}</span><span className="pt-1">{p.display.rhs.d}</span></div> :
+                                <span>{p.display.rhs.val}</span>
+                            }
+                        </div>
+                    );
+                }
+            };
+
+            // --- 1. 首頁渲染 ---
+            if (gameState === 'home') {
+                return (
+                    <div className="min-h-screen bg-fuchsia-50 font-sans overflow-y-auto">
+                        <div className="fixed top-2 right-2 text-xs px-3 py-1 rounded-full z-50 flex items-center gap-1.5 bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 shadow-sm">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                            {CLOUD_ENABLED ? '共用排行榜已設定' : '本機紀錄模式'}
+                        </div>
+                        <header className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-6 shadow-lg text-center relative">
+                            <div className="relative z-10">
+                                <div className="flex justify-center items-center gap-3 mb-2">
+                                    <div className="bg-white/20 p-3 rounded-full"><Icons.Wand2 className="w-8 h-8 text-yellow-300" /></div>
+                                    <h1 className="text-3xl sm:text-4xl font-bold tracking-wider drop-shadow-md">翠翠小精靈的數學空間</h1>
+                                </div>
+                                <p className="text-pink-100 text-lg">一元一次方程式練功區・六關挑戰</p>
+                                <div className="flex flex-wrap justify-center gap-4 mt-6">
+                                    <div className="bg-black/20 inline-flex items-center gap-4 px-6 py-2 rounded-full backdrop-blur-sm border border-white/20">
+                                        <div className="flex items-center gap-2"><Icons.Trophy className="w-4 h-4 text-yellow-300" /><span className="text-sm font-bold">目前積分: {score}</span></div>
+                                        <div className="w-px h-4 bg-white/30"></div>
+                                        <div className="flex items-center gap-2"><Icons.Medal className="w-4 h-4 text-emerald-300" /><span className="text-sm font-bold">進度: {completedLevels.length}/{LEVEL_CONFIG.length}</span></div>
+                                    </div>
+                                    <button onClick={handleShowLeaderboard} className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 px-5 py-2 rounded-full font-bold shadow-md transition-transform hover:scale-105 flex items-center gap-2"><Icons.Crown className="w-4 h-4" /> 查看榮譽榜</button>
+                                </div>
+                            </div>
+                        </header>
+                        <main className="max-w-5xl mx-auto p-6 pb-20">
+                            <div className="text-center mb-8">
+                                <h2 className="text-2xl font-bold text-purple-800 flex items-center justify-center gap-2"><Icons.LayoutGrid className="w-6 h-6" /> 請選擇修練關卡</h2>
+                                <p className="text-slate-500 mt-2">{completedLevels.length === 0 ? "選擇一個魔法封印開始你的挑戰吧！" : "過關的關卡可以重複挑戰，但不會重複給分喔。"}</p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {LEVEL_CONFIG.map((level, index) => {
+                                    const isCompleted = completedLevels.includes(index);
+                                    return (
+                                        <button key={level.id} onClick={() => startLevel(index)} className={`group relative bg-white rounded-3xl shadow-lg border-2 overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-left flex flex-col h-full ${isCompleted ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-purple-100 hover:border-purple-300'}`}>
+                                            <div className={`h-3 w-full bg-gradient-to-r ${level.color}`}></div>
+                                            <div className="p-6 flex-1 flex flex-col relative">
+                                                {isCompleted && <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-emerald-200 shadow-sm"><Icons.Check className="w-3 h-3" strokeWidth={3} /> 已過關</div>}
+                                                <div className="flex justify-between items-start mb-4"><div className={`p-3 rounded-2xl transition-colors ${isCompleted ? 'bg-emerald-50 text-emerald-600' : 'bg-purple-50 text-purple-600 group-hover:bg-purple-100'}`}><span className="text-2xl font-bold">0{level.id}</span></div></div>
+                                                <span className={`inline-block self-start mb-3 text-xs font-bold px-3 py-1 rounded-full border ${isCompleted ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>{level.concept}</span>
+                                                <h3 className={`text-xl font-bold mb-2 transition-colors ${isCompleted ? 'text-emerald-800' : 'text-slate-800 group-hover:text-purple-700'}`}>{level.title}</h3>
+                                                <p className="text-slate-500 text-sm leading-relaxed mb-6 flex-1">{level.description}</p>
+                                                <div className={`flex items-center font-bold text-sm transition-transform group-hover:translate-x-2 ${isCompleted ? 'text-emerald-500' : 'text-purple-500'}`}>
+                                                    {isCompleted ? '再次練習' : '開始挑戰'} <Icons.ArrowRight className="w-4 h-4 ml-1" />
+                                                </div>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </main>
+                    </div>
+                );
+            }
+
+            // --- 2. 遊戲進行中狀態 ---
+            if (gameState === 'playing') {
+                const currentLevelData = LEVEL_CONFIG[currentLevel];
+                const currentProblem = problems[currentProblemIndex];
+
+                return (
+                    <div className="min-h-screen bg-fuchsia-50 font-sans flex flex-col">
+                        <header className="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-10">
+                            <button onClick={handleGoHome} className="text-slate-500 hover:text-purple-600 flex items-center gap-2 font-bold transition-colors">
+                                <Icons.Home className="w-5 h-5" /> 返回首頁
+                            </button>
+                            <div className="flex items-center gap-4">
+                                <div className="bg-yellow-100 text-yellow-700 px-4 py-1 rounded-full font-bold flex items-center gap-2">
+                                    <Icons.Star className="w-4 h-4" /> 積分: {score}
+                                </div>
+                            </div>
+                        </header>
+
+                        <main className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
+                            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-purple-100 animate-fade-in-up">
+                                <div className={`bg-gradient-to-r ${currentLevelData.color} p-6 text-white text-center relative`}>
+                                    <h2 className="text-2xl sm:text-3xl font-bold mb-2">{currentLevelData.title}</h2>
+                                    <p className="opacity-90">{currentLevelData.description}</p>
+                                    <div className="mt-4 flex justify-center gap-1">
+                                        {[0, 1, 2, 3, 4].map(idx => (
+                                            <div key={idx} className={`h-2 w-8 sm:w-12 rounded-full transition-colors ${idx < currentProblemIndex ? 'bg-white' : idx === currentProblemIndex ? 'bg-white/60 animate-pulse' : 'bg-white/20'}`}></div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="p-6 sm:p-10 flex flex-col items-center relative">
+                                    {/* 答錯提示與影片連結區 */}
+                                    {showErrorGuide && (
+                                        <div className="w-full mb-8 bg-amber-50 border border-amber-200 rounded-2xl p-5 text-amber-900 animate-fade-in-up">
+                                            <h4 className="font-bold text-lg mb-2 flex items-center gap-2"><Icons.BookOpen className="w-5 h-5" /> 翠翠小提示：{currentLevelData.teaching.title}</h4>
+                                            <p className="whitespace-pre-wrap mb-3 text-sm leading-relaxed">{currentLevelData.teaching.content}</p>
+                                            <div className="bg-amber-100/50 p-3 rounded-xl mb-4 font-mono whitespace-pre-line text-center tracking-wider">{currentLevelData.teaching.example}</div>
+                                            {currentLevelData.teaching.videoUrl && <a href={currentLevelData.teaching.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm bg-amber-200 hover:bg-amber-300 px-4 py-2 rounded-full font-bold transition-colors">
+                                                <Icons.Video className="w-4 h-4" /> 觀看均一教育平台教學影片
+                                            </a>}
+                                        </div>
+                                    )}
+
+                                    {/* 題目顯示 */}
+                                    <div className="mb-10 min-h-[120px] flex items-center justify-center w-full">
+                                        {renderProblemDisplay(currentProblem)}
+                                    </div>
+
+                                    {/* 答題輸入 */}
+                                    <div className="flex flex-col items-center w-full max-w-sm">
+                                        <div className="flex w-full gap-2 mb-4">
+                                            <input
+                                                ref={inputRef}
+                                                type="text"
+                                                inputMode="text"
+                                                placeholder="輸入答案 (例如 3/2 或 5)"
+                                                value={userInput}
+                                                onChange={(e) => setUserInput(e.target.value)}
+                                                onKeyDown={(e) => { if(e.key === 'Enter') handleCheck(); }}
+                                                className={`min-w-0 flex-1 text-center text-2xl font-bold border-2 rounded-2xl py-3 px-4 focus:outline-none focus:ring-4 transition-all ${feedback === 'error' ? 'border-red-400 bg-red-50 text-red-700 focus:border-red-500 focus:ring-red-100' : 'border-purple-200 text-slate-700 focus:border-purple-500 focus:ring-purple-100'}`}
+                                                disabled={feedback === 'success'}
+                                            />
+                                            {currentLevel >= 2 && (
+                                                <button onClick={handleInsertSlash} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 rounded-2xl border-2 border-slate-200 transition-colors flex flex-col items-center justify-center active:scale-95" disabled={feedback === 'success'}>
+                                                    <span className="text-[10px] mb-0.5">斜線</span>
+                                                    <Icons.Divide className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={handleCheck}
+                                            disabled={feedback === 'success'}
+                                            className={`w-full py-4 rounded-2xl font-bold text-lg text-white shadow-md transition-all flex items-center justify-center gap-2 ${feedback === 'success' ? 'bg-emerald-500 scale-105' : feedback === 'error' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-purple-600 hover:bg-purple-500 hover:shadow-lg active:scale-95'}`}
+                                        >
+                                            {feedback === 'success' ? <><Icons.CheckCircle className="w-6 h-6" /> 魔法成功！</> : feedback === 'error' ? '再試一次' : <><Icons.Sparkles className="w-6 h-6" /> 施展魔法 (Enter)</>}
+                                        </button>
+                                        
+                                        {earnedBonus > 0 && feedback === 'success' && (
+                                            <div className="absolute top-1/3 right-0 sm:-right-8 text-emerald-500 font-black text-xl sm:text-2xl animate-bounce-in drop-shadow-sm rotate-12">
+                                                +{earnedBonus} 速度加分!
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                );
+            }
+
+            // --- 3. 全破關結算狀態 ---
+            if (gameState === 'allComplete') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-b from-fuchsia-100 to-purple-200 flex flex-col items-center justify-center p-4">
+                        <div className="bg-white p-8 sm:p-12 rounded-3xl shadow-2xl max-w-lg w-full text-center relative overflow-hidden animate-fade-in-up border-4 border-yellow-300">
+                            <Icons.Crown className="w-24 h-24 mx-auto text-yellow-400 mb-6 drop-shadow-lg" />
+                            <h2 className="text-4xl font-bold text-purple-800 mb-2">恭喜全關通關！</h2>
+                            <p className="text-slate-600 mb-6">你已成功解開所有的魔法封印，成為真正的數學魔法師！</p>
+                            
+                            <div className="bg-purple-50 rounded-2xl p-6 mb-8 border border-purple-100">
+                                <p className="text-sm text-purple-600 font-bold mb-1">六關挑戰總積分</p>
+                                <div className="text-6xl font-mono font-black text-purple-700 tracking-tighter">{score}</div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <input 
+                                    type="text" 
+                                    placeholder="請輸入你的魔法師大名..." 
+                                    value={playerName} 
+                                    onChange={(e) => setPlayerName(e.target.value)}
+                                    className="w-full text-center text-lg border-2 border-slate-200 rounded-xl py-3 px-4 focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-100 transition-all"
+                                    maxLength="12"
+                                    disabled={isSaving || Boolean(runRecord.current)}
+                                />
+                                <button 
+                                    onClick={handleSaveRecord}
+                                    disabled={!playerName.trim() || isSaving}
+                                    className={`w-full py-4 rounded-xl font-bold text-white shadow-md transition-all flex items-center justify-center gap-2 ${!playerName.trim() || isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 hover:shadow-lg active:scale-95'}`}
+                                >
+                                    <Icons.Save className="w-5 h-5" /> {isSaving ? '紀錄儲存中…' : runRecord.current ? '重試儲存' : CLOUD_ENABLED ? '儲存至線上排行榜' : '儲存至本機紀錄'}
+                                </button>
+                                <p role="status" className="text-sm text-slate-600">{notice || (!CLOUD_ENABLED ? "共用資料庫尚未設定，目前只保存在此瀏覽器。" : "請使用暱稱，成績將顯示於共用排行榜。")}</p>
+                                <button disabled={isSaving} onClick={handleRestartGame} className="w-full py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
+                                    <Icons.RotateCcw className="w-5 h-5" /> 重新開始挑戰
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- 4. 榮譽榜狀態 ---
+            if (gameState === 'leaderboard') {
+                return (
+                    <div className="min-h-screen bg-fuchsia-50 p-4 sm:p-6 pb-20">
+                        <header className="max-w-2xl mx-auto flex justify-between items-center mb-8">
+                            <button onClick={handleGoHome} className="bg-white p-3 rounded-full shadow-md text-slate-600 hover:text-purple-600 transition-transform hover:scale-105">
+                                <Icons.Home className="w-6 h-6" />
+                            </button>
+                            <h2 className="text-3xl font-bold text-purple-800 flex items-center gap-2 drop-shadow-sm"><Icons.Trophy className="w-8 h-8 text-yellow-500" /> {boardMode === 'online' ? '線上排行榜' : '本機紀錄'}</h2>
+                            <button onClick={refreshLeaderboard} disabled={isLoading} className="bg-white p-2 rounded-full shadow" title="重新整理排行榜"><Icons.RotateCcw className="w-5 h-5" /></button>
+                        </header>
+
+                        <div className="max-w-2xl mx-auto mb-4 space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                                {CLOUD_ENABLED && <button onClick={() => setBoardMode('online')} className={`px-4 py-2 rounded-xl ${boardMode === 'online' ? 'bg-purple-600 text-white' : 'bg-white'}`}>線上排行</button>}
+                                <button onClick={() => setBoardMode('local')} className={`px-4 py-2 rounded-xl ${boardMode === 'local' ? 'bg-purple-600 text-white' : 'bg-white'}`}>本機紀錄</button>
+                                {CLOUD_ENABLED && pendingCount > 0 && <button disabled={isSaving} onClick={syncPending} className="px-4 py-2 rounded-xl bg-amber-100">{isSaving ? '同步中…' : `補傳 ${pendingCount} 筆成績`}</button>}
+                            </div>
+                            <p className="text-sm text-slate-600">{boardMode === 'online' ? '顯示六關挑戰前 100 名，每 30 秒更新。歷次成績均保留在資料庫。' : '保留此瀏覽器的歷次成績，顯示前 100 名。清除瀏覽器資料會移除本機紀錄。'}{!CLOUD_ENABLED && ' 共用資料庫尚未設定。'}</p>
+                            {notice && <p role="status" className="text-sm text-purple-700">{notice}</p>}
+                            {boardError && <p role="alert" className="text-sm text-red-700">{boardError}</p>}
+                        </div>
+                        <main className="max-w-2xl mx-auto bg-white rounded-3xl shadow-xl overflow-hidden border border-purple-100">
+                            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-4 text-white text-center shadow-inner">
+                                <p className="font-bold text-lg">{boardMode === 'online' ? '六關挑戰・前 100 名' : '本機歷次挑戰・前 100 名'}</p>
+                            </div>
+                            {isLoading ? (
+                                <div className="p-16 text-center text-slate-500 flex flex-col items-center">
+                                    <Icons.Sparkles className="w-10 h-10 mb-4 animate-spin-slow text-yellow-400" />
+                                    讀取魔法卷軸中...
+                                </div>
+                            ) : (
+                                <div className="p-3 sm:p-6">
+                                    {boardError ? <div className="p-8 text-center text-slate-500">請重新整理後再試。</div> : leaderboard.length === 0 ? (
+                                        <div className="p-12 text-center text-slate-500 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                                            目前還沒有記錄，快去通關留下大名吧！
+                                        </div>
+                                    ) : (
+                                        <ul className="space-y-3">
+                                            {leaderboard.map((record, index) => (
+                                                <li key={index} className={`flex items-center justify-between p-4 rounded-2xl transition-all hover:scale-[1.01] ${index === 0 ? 'bg-yellow-50 border-2 border-yellow-200 shadow-sm' : index === 1 ? 'bg-slate-50 border-2 border-slate-200' : index === 2 ? 'bg-orange-50 border-2 border-orange-200' : 'border border-slate-100 hover:bg-slate-50'}`}>
+                                                    <div className="flex items-center gap-4 sm:gap-6">
+                                                        <div className={`w-10 h-10 flex items-center justify-center font-black text-lg rounded-full shadow-sm ${index === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white' : index === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-400 text-white' : index === 2 ? 'bg-gradient-to-br from-orange-300 to-orange-400 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                            {index + 1}
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-bold text-slate-800 text-lg break-all">{record.name}</div>
+                                                            <div className="text-xs text-slate-400 mt-1">{record.date}{boardMode === 'local' && (record.version === 6 ? '・六關挑戰' : '・舊版紀錄')}{record.pending && '・待同步'}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Icons.Star className={`w-4 h-4 ${index < 3 ? 'text-yellow-400' : 'text-slate-300'}`} />
+                                                        <span className="font-mono font-bold text-xl sm:text-2xl text-purple-700">{record.score}</span>
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            )}
+                        </main>
+                    </div>
+                );
+            }
+
+            return null;
+        };
+
+        // ==========================================
+        //  渲染 React 應用程式 (React 18 最新標準語法)
+        // ==========================================
+        const rootElement = document.getElementById('root');
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(<EquationAdventure />);
+    </script>
+</body>
+</html>
