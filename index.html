@@ -83,7 +83,7 @@
         window.onerror = function(message, source, lineno, colno, error) {
             const errorDiv = document.getElementById('error-display');
             errorDiv.style.display = 'block';
-            errorDiv.innerHTML = `<strong>程式發生錯誤：</strong><br>${message}<br><small>Line: ${lineno}</small>`;
+            errorDiv.textContent = `程式發生錯誤：${message}（第 ${lineno} 行）`;
             console.error(error);
         };
 
@@ -118,10 +118,9 @@
             Save: (p) => <IconBase {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconBase>
         };
 
-        // 教師設定：建立資料庫後填入這兩項，再將本檔上傳到網站。
-        // 僅可使用 publishable 或 anon 公開金鑰，切勿使用 secret / service_role。
-        const CLOUD = { url: "", key: "" };
-        const CLOUD_ENABLED = Boolean(CLOUD.url && CLOUD.key);
+        // GitHub Pages 呼叫 Supabase 後端；此網址不是金鑰。
+        const CLOUD = { url: "https://okfaarexusuyeczefftx.supabase.co/functions/v1/math-leaderboard" };
+        const CLOUD_ENABLED = location.origin === "https://why566-x.github.io";
         const RECORD_KEY = 'math_adventure_local_leaderboard';
         const readRecords = () => {
             const records = JSON.parse(localStorage.getItem(RECORD_KEY) || '[]');
@@ -134,10 +133,12 @@
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 12000);
             try {
-                const headers = {'Content-Type':'application/json', apikey:CLOUD.key};
-                if (CLOUD.key.startsWith('eyJ')) headers.Authorization = `Bearer ${CLOUD.key}`;
-                const response = await fetch(`${CLOUD.url.replace(/\/$/,'')}/rest/v1/rpc/${method}`, {
-                    method:'POST', headers, body:JSON.stringify(body), signal:controller.signal
+                const route = CLOUD.url;
+                const response = await fetch(route, {
+                    method: method === 'equation_top_scores' ? 'GET' : 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: method === 'equation_top_scores' ? undefined : JSON.stringify(body),
+                    signal: controller.signal, credentials: 'omit'
                 });
                 if (!response.ok) throw new Error(`連線失敗（${response.status}）`);
                 return await response.json();
@@ -453,7 +454,7 @@
                     if (!rows.some(r => r.id === record.id)) localStorage.setItem(RECORD_KEY, JSON.stringify([...rows, record]));
                     localSaved = true;
                     if (CLOUD_ENABLED) { await uploadRecord(record); markSynced(record.id); }
-                    setNotice(CLOUD_ENABLED ? '成績已儲存到線上排行榜，並保留本機備份。' : '成績已儲存於本機。共用資料庫尚未設定。');
+                    setNotice(CLOUD_ENABLED ? '成績已儲存到線上排行榜，並保留本機備份。' : '成績已儲存於本機。目前為本機模式；請從 GitHub 正式網站開啟線上排行榜。');
                     setGameState('leaderboard');
                 } catch(e) {
                     setNotice(localSaved ? '本機紀錄已保留，但線上同步未完成。請按「重試儲存」，或稍後在排行榜補傳。' : '本機儲存失敗，請確認瀏覽器儲存空間與權限後重試。');
@@ -495,7 +496,7 @@
                     <div className="min-h-screen bg-fuchsia-50 font-sans overflow-y-auto">
                         <div className="fixed top-2 right-2 text-xs px-3 py-1 rounded-full z-50 flex items-center gap-1.5 bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 shadow-sm">
                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                            {CLOUD_ENABLED ? '共用排行榜已設定' : '本機紀錄模式'}
+                            {CLOUD_ENABLED ? '後端排行榜模式' : '本機紀錄模式'}
                         </div>
                         <header className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-6 shadow-lg text-center relative">
                             <div className="relative z-10">
@@ -666,7 +667,7 @@
                                 >
                                     <Icons.Save className="w-5 h-5" /> {isSaving ? '紀錄儲存中…' : runRecord.current ? '重試儲存' : CLOUD_ENABLED ? '儲存至線上排行榜' : '儲存至本機紀錄'}
                                 </button>
-                                <p role="status" className="text-sm text-slate-600">{notice || (!CLOUD_ENABLED ? "共用資料庫尚未設定，目前只保存在此瀏覽器。" : "請使用暱稱，成績將顯示於共用排行榜。")}</p>
+                                <p role="status" className="text-sm text-slate-600">{notice || (!CLOUD_ENABLED ? "請從 GitHub 正式網站開啟，才能使用線上排行榜。目前只保存在此瀏覽器。" : "請使用暱稱，成績將顯示於共用排行榜。")}</p>
                                 <button disabled={isSaving} onClick={handleRestartGame} className="w-full py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                                     <Icons.RotateCcw className="w-5 h-5" /> 重新開始挑戰
                                 </button>
@@ -694,7 +695,7 @@
                                 <button onClick={() => setBoardMode('local')} className={`px-4 py-2 rounded-xl ${boardMode === 'local' ? 'bg-purple-600 text-white' : 'bg-white'}`}>本機紀錄</button>
                                 {CLOUD_ENABLED && pendingCount > 0 && <button disabled={isSaving} onClick={syncPending} className="px-4 py-2 rounded-xl bg-amber-100">{isSaving ? '同步中…' : `補傳 ${pendingCount} 筆成績`}</button>}
                             </div>
-                            <p className="text-sm text-slate-600">{boardMode === 'online' ? '顯示六關挑戰前 100 名，每 30 秒更新。歷次成績均保留在資料庫。' : '保留此瀏覽器的歷次成績，顯示前 100 名。清除瀏覽器資料會移除本機紀錄。'}{!CLOUD_ENABLED && ' 共用資料庫尚未設定。'}</p>
+                            <p className="text-sm text-slate-600">{boardMode === 'online' ? '顯示六關挑戰前 100 名，每 30 秒更新。歷次成績均保留在資料庫。' : '保留此瀏覽器的歷次成績，顯示前 100 名。清除瀏覽器資料會移除本機紀錄。'}{!CLOUD_ENABLED && ' 目前為本機模式；請從 GitHub 正式網站開啟線上排行榜。'}</p>
                             {notice && <p role="status" className="text-sm text-purple-700">{notice}</p>}
                             {boardError && <p role="alert" className="text-sm text-red-700">{boardError}</p>}
                         </div>
